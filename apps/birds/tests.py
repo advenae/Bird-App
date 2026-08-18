@@ -1,4 +1,5 @@
 from django.test import TestCase
+from django.urls import reverse
 from .views import (
     przynaleznosc_trapezoidalna,
     miesiac_w_zakresie,
@@ -6,6 +7,7 @@ from .views import (
     przelicz_wagi,
     oblicz_ranking_SAW,
 )
+from .forms import ObserwacjaForm
 from .models import Biotop, Kolor, Gatunek
 
 
@@ -98,7 +100,6 @@ class PrzeliczWagiTest(TestCase):
 
 
 class ObliczRankingSAWTest(TestCase):
-    """Testy integracyjne - wymagają prawdziwych obiektów w bazie testowej."""
 
     def setUp(self):
         self.las = Biotop.objects.create(nazwa="las")
@@ -144,3 +145,102 @@ class ObliczRankingSAWTest(TestCase):
         for gatunek, ocena in wyniki:
             self.assertGreaterEqual(ocena, 0.0)
             self.assertLessEqual(ocena, 1.0)
+
+class ObserwacjaFormTest(TestCase):
+
+    def setUp(self):
+        self.biotop = Biotop.objects.create(nazwa="las")
+
+    def test_pusty_formularz_jest_niepoprawny(self):
+        form = ObserwacjaForm(data={})
+        self.assertFalse(form.is_valid())
+        self.assertIn("Podaj przynajmniej jedno kryterium", str(form.errors))
+
+    def test_jedno_pole_wystarcza(self):
+        form = ObserwacjaForm(data={"biotop": self.biotop.pk})
+        self.assertTrue(form.is_valid())
+
+    def test_ujemna_dlugosc_ciala_jest_niepoprawna(self):
+        form = ObserwacjaForm(data={"dlugosc_ciala": -5})
+        self.assertFalse(form.is_valid())
+        self.assertIn("dlugosc_ciala", form.errors)
+
+    def test_zbyt_duza_rozpietosc_skrzydel_jest_niepoprawna(self):
+        form = ObserwacjaForm(data={"rozpietosc_skrzydel": 1000})
+        self.assertFalse(form.is_valid())
+        self.assertIn("rozpietosc_skrzydel", form.errors)
+
+    def test_pusty_miesiac_nie_liczy_sie_jako_podany(self):
+        # pole miesiac z pustą wartością "" nie powinno samo wystarczyć
+        form = ObserwacjaForm(data={"miesiac": ""})
+        self.assertFalse(form.is_valid())
+
+
+class HomeViewTest(TestCase):
+
+    def setUp(self):
+        self.miasto = Biotop.objects.create(nazwa="miasto")
+        self.las = Biotop.objects.create(nazwa="las")
+        self.czarny = Kolor.objects.create(nazwa="czarny")
+
+        self.wrobel = Gatunek.objects.create(
+            nazwa="Wróbel",
+            dlugosc_ciala_min=14, dlugosc_ciala_max=16,
+            rozpietosc_skrzydel_min=21, rozpietosc_skrzydel_max=25,
+            miesiac_od=1, miesiac_do=12,
+        )
+        self.wrobel.biotopy.add(self.miasto)
+        self.wrobel.kolory.add(self.czarny)
+
+    def test_get_wyswietla_pusty_formularz(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["wyniki"])
+
+    def test_post_z_kryterium_zwraca_wyniki(self):
+        response = self.client.post(reverse("home"), {"biotop": self.miasto.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(response.context["wyniki"])
+        nazwy = [g.nazwa for g, ocena in response.context["wyniki"]]
+        self.assertIn("Wróbel", nazwy)
+
+    def test_post_bez_niczego_pokazuje_blad_walidacji(self):
+        response = self.client.post(reverse("home"), {})
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["wyniki"])
+        self.assertFalse(response.context["form"].is_valid())
+
+    def test_url_nie_zawiera_danych_formularza(self):
+        response = self.client.post(reverse("home"), {"biotop": self.miasto.pk})
+        self.assertEqual(response.request["PATH_INFO"], "/")
+
+    def test_nazwa_gatunku_linkuje_do_szczegolow(self):
+        response = self.client.post(reverse("home"), {"biotop": self.miasto.pk})
+        self.assertContains(response, reverse("gatunek_szczegoly", args=[self.wrobel.pk]))
+
+
+class GatunekSzczegolyViewTest(TestCase):
+
+    def setUp(self):
+        self.wrobel = Gatunek.objects.create(
+            nazwa="Wróbel",
+            dlugosc_ciala_min=14, dlugosc_ciala_max=16,
+            rozpietosc_skrzydel_min=21, rozpietosc_skrzydel_max=25,
+            miesiac_od=1, miesiac_do=12,
+        )
+
+    def test_istniejacy_gatunek_zwraca_200(self):
+        response = self.client.get(reverse("gatunek_szczegoly", args=[self.wrobel.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Wróbel")
+
+    def test_nieistniejacy_gatunek_zwraca_404(self):
+        response = self.client.get(reverse("gatunek_szczegoly", args=[9999]))
+        self.assertEqual(response.status_code, 404)
+
+
+class OServisieViewTest(TestCase):
+
+    def test_strona_o_serwisie_dziala(self):
+        response = self.client.get(reverse("o_serwisie"))
+        self.assertEqual(response.status_code, 200)
