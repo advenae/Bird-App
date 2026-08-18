@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Identyfikacja ptaków</title>
+</head>
+<body>
+    <h1>Identyfikacja ptaków</h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Szukaj</button>
+        <button type="reset">Wyczyść</button>
+    </form>
+
+    {% if wyniki is not None %}
+        <h2>Wyniki</h2>
+        <ol>
+        {% for gatunek, ocena in wyniki %}
+            <li>{{ gatunek.nazwa }} — {{ ocena }}</li>
+        {% endfor %}
+        </ol>
+    {% endif %}
+</body>
+</html>
