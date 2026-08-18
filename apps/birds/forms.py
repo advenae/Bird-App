@@ -13,32 +13,36 @@ MIESIACE = [
 
 class ObserwacjaForm(forms.Form):
     biotop = forms.ModelChoiceField(
-    queryset=Biotop.objects.all(),
-    required=False,
-    label="Biotop",
-    empty_label="",
-)
+        queryset=Biotop.objects.all(),
+        required=False,
+        label="Biotop",
+        empty_label="",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
     miesiac = forms.ChoiceField(
         choices=MIESIACE,
         required=False,
         label="Miesiąc obserwacji",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
     dlugosc_ciala = forms.FloatField(
         required=False,
         label="Długość ciała (cm)",
         min_value=0.1,
         max_value=300,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
     )
     rozpietosc_skrzydel = forms.FloatField(
         required=False,
         label="Rozpiętość skrzydeł (cm)",
         min_value=0.1,
         max_value=400,
+        widget=forms.NumberInput(attrs={"class": "form-control"}),
     )
     kolory = forms.ModelMultipleChoiceField(
         queryset=Kolor.objects.all(),
         required=False,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
         label="Zaobserwowane kolory",
     )
 

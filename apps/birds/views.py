@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from .forms import ObserwacjaForm
 from .models import Gatunek
 
@@ -98,3 +98,11 @@ def home(request):
         wyniki = oblicz_ranking_SAW(dane)
 
     return render(request, "birds/home.html", {"form": form, "wyniki": wyniki})
+
+def o_serwisie(request):
+    return render(request, "birds/o_serwisie.html")
+
+
+def gatunek_szczegoly(request, pk):
+    gatunek = get_object_or_404(Gatunek, pk=pk)
+    return render(request, "birds/gatunek_szczegoly.html", {"gatunek": gatunek})
